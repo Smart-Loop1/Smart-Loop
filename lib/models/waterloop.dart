@@ -1,15 +1,22 @@
 class WaterLoop {
-  String id;
-  String name;
-  double totalLiters;
-  double currentFlowRate;
+  final String id;
+  final String name;
+  final double? totalLiters;
+  final double? currentFlowRate;
 
-  WaterLoop({
+  const WaterLoop({
     required this.id,
     required this.name,
-    this.totalLiters = 0.0,
-    this.currentFlowRate = 0.0,
+    this.totalLiters,
+    this.currentFlowRate,
   });
 
-  double get estimatedCost => (totalLiters * 0.001) + 5;
+  WaterLoop copyWith({String? name}) {
+    return WaterLoop(
+      id: id,
+      name: name ?? this.name,
+      totalLiters: totalLiters,
+      currentFlowRate: currentFlowRate,
+    );
+  }
 }
