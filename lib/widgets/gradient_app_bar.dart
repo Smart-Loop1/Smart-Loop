@@ -6,6 +6,7 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.title,
     this.gradient = AppGradients.primary,
     this.leading,
+    this.actions,
     this.automaticallyImplyLeading = false,
     super.key,
   });
@@ -13,6 +14,7 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   final Gradient gradient;
   final Widget? leading;
+  final List<Widget>? actions;
   final bool automaticallyImplyLeading;
 
   @override
@@ -24,6 +26,7 @@ class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
       decoration: BoxDecoration(gradient: gradient),
       child: AppBar(
         leading: leading,
+        actions: actions,
         automaticallyImplyLeading: automaticallyImplyLeading,
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,

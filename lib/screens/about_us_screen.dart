@@ -1,5 +1,6 @@
 import 'package:finalproject/core/constants/app_colors.dart';
 import 'package:finalproject/widgets/gradient_app_bar.dart';
+import 'package:finalproject/widgets/water_drop_mark.dart';
 import 'package:flutter/material.dart';
 
 class AboutUsScreen extends StatelessWidget {
@@ -25,11 +26,7 @@ class AboutUsScreen extends StatelessWidget {
                 gradient: AppGradients.primary,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.water_drop_rounded,
-                color: AppColors.white,
-                size: 42,
-              ),
+              child: const Center(child: WaterDropMark(size: 36)),
             ),
           ),
           const SizedBox(height: 18),

@@ -6,8 +6,10 @@ import 'package:finalproject/extensions/location_icon_extensions.dart';
 import 'package:finalproject/models/device_location.dart';
 import 'package:finalproject/models/waterloop.dart';
 import 'package:finalproject/screens/loop_dashboard_screen.dart';
+import 'package:finalproject/screens/notifications_screen.dart';
 import 'package:finalproject/widgets/gradient_app_bar.dart';
 import 'package:finalproject/widgets/loop_offer_banner.dart';
+import 'package:finalproject/widgets/water_drop_mark.dart';
 import 'package:flutter/material.dart';
 
 class HomeScreenContent extends StatefulWidget {
@@ -36,6 +38,14 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
           onPressed: () => Navigator.of(context).maybePop(),
           icon: const Icon(Icons.arrow_back_rounded),
         ),
+        actions: [
+          IconButton(
+            tooltip: 'Notifications',
+            onPressed: () =>
+                context.pushScreen<void>(const NotificationsScreen()),
+            icon: const Icon(Icons.notifications_none_rounded),
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
@@ -598,16 +608,14 @@ class _EmptyDevicesView extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: const EdgeInsets.all(24),
+            width: 102,
+            height: 102,
+            alignment: Alignment.center,
             decoration: BoxDecoration(
               color: AppColors.primaryAccent.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
-            child: const Icon(
-              Icons.water_drop_outlined,
-              color: AppColors.primaryAccent,
-              size: 54,
-            ),
+            child: const WaterDropMark(size: 44),
           ),
           const SizedBox(height: 22),
           Text(
