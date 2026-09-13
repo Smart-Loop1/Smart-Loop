@@ -182,7 +182,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     final input = await _showDeviceDialog(initialLocationId: initialLocationId);
     if (!mounted || input == null) return;
 
-    final device = WaterLoop(id: _createId(), name: input.name);
+    final device = WaterLoop(id: _appData.nextDeviceId(), name: input.name);
 
     _appData.addDevice(device, locationId: input.locationId);
   }

@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "322487975981",
+    "firebase_url": "https://smartloop-cccf0-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "smartloop-cccf0",
+    "storage_bucket": "smartloop-cccf0.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:322487975981:android:fc000ab6e91f521b84b8a4",
+        "android_client_info": {
+          "package_name": "com.example.finalproject"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCq6vOFdcvwduL7tgklGb0oqgKE_rRd0I0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,4 +1,5 @@
 import 'package:finalproject/core/constants/app_colors.dart';
+import 'package:finalproject/core/state/app_data_scope.dart';
 import 'package:finalproject/models/waterloop.dart';
 import 'package:finalproject/widgets/gradient_app_bar.dart';
 import 'package:flutter/material.dart';
@@ -8,25 +9,22 @@ class LoopDashboardScreen extends StatelessWidget {
 
   final WaterLoop loop;
 
-  String get _flowRateText {
-    final flowRate = loop.currentFlowRate;
-    return flowRate == null
-        ? '-- L / min'
-        : '${flowRate.toStringAsFixed(1)} L / min';
-  }
-
-  String get _totalLitersText {
-    final totalLiters = loop.totalLiters;
-    return totalLiters == null ? '-- L' : '${totalLiters.toStringAsFixed(1)} L';
-  }
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final currentLoop = AppDataScope.of(context).deviceById(loop.id) ?? loop;
+    final flowRate = currentLoop.currentFlowRate;
+    final totalLiters = currentLoop.totalLiters;
+    final flowRateText = flowRate == null
+        ? '-- L / min'
+        : '${flowRate.toStringAsFixed(1)} L / min';
+    final totalLitersText = totalLiters == null
+        ? '-- L'
+        : '${totalLiters.toStringAsFixed(1)} L';
 
     return Scaffold(
       appBar: GradientAppBar(
-        title: loop.name,
+        title: currentLoop.name,
         gradient: AppGradients.flow,
         automaticallyImplyLeading: true,
       ),
@@ -35,14 +33,14 @@ class LoopDashboardScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _FlowRateCard(value: _flowRateText),
+            _FlowRateCard(value: flowRateText),
             const SizedBox(height: 24),
             Row(
               children: [
                 Expanded(
                   child: _InfoCard(
                     title: 'Total Consumed',
-                    value: _totalLitersText,
+                    value: totalLitersText,
                     icon: Icons.analytics_outlined,
                     accentColor: AppColors.primaryAccent,
                   ),
@@ -68,7 +66,7 @@ class LoopDashboardScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            const _SystemStatusCard(),
+            _SystemStatusCard(loop: currentLoop),
           ],
         ),
       ),
@@ -201,7 +199,9 @@ class _InfoCard extends StatelessWidget {
 }
 
 class _SystemStatusCard extends StatelessWidget {
-  const _SystemStatusCard();
+  const _SystemStatusCard({required this.loop});
+
+  final WaterLoop loop;
 
   @override
   Widget build(BuildContext context) {
@@ -239,12 +239,18 @@ class _SystemStatusCard extends StatelessWidget {
               size: 26,
             ),
           ),
-          title: const Text(
-            'Waiting for device status',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          title: Text(
+            loop.status == 'online'
+                ? 'Device connected'
+                : loop.status == 'off'
+                ? 'System switched off'
+                : 'Waiting for device status',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
           subtitle: Text(
-            'System alerts will appear when cloud data is received.',
+            loop.lastSeen == null
+                ? 'System alerts will appear when cloud data is received.'
+                : 'Live readings received from ${loop.id}.',
             style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
           ),
         ),

@@ -27,4 +27,31 @@ class DeviceLocation {
       devices: devices ?? this.devices,
     );
   }
+
+  Map<String, Object?> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'iconType': iconType.name,
+      'devices': devices.map((device) => device.toJson()).toList(),
+    };
+  }
+
+  factory DeviceLocation.fromJson(Map<String, dynamic> json) {
+    final iconName = json['iconType'] as String?;
+
+    return DeviceLocation(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? 'Location',
+      iconType: LocationIconType.values.firstWhere(
+        (icon) => icon.name == iconName,
+        orElse: () => LocationIconType.water,
+      ),
+      devices: [
+        for (final device in json['devices'] as List<dynamic>? ?? const [])
+          if (device is Map<Object?, Object?>)
+            WaterLoop.fromJson(Map<String, dynamic>.from(device)),
+      ],
+    );
+  }
 }
