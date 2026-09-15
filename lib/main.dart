@@ -50,22 +50,23 @@ class _MainAppState extends State<MainApp> {
 
   @override
   Widget build(BuildContext context) {
-    return AppDataScope(
-      controller: _appDataController,
-      child: ValueListenableBuilder<ThemeMode>(
-        valueListenable: AppThemeController.mode,
-        child: const WelcomeScreen(),
-        builder: (context, themeMode, home) {
-          return MaterialApp(
-            debugShowCheckedModeBanner: false,
-            title: 'Smart Loop',
-            theme: AppTheme.light,
-            darkTheme: AppTheme.dark,
-            themeMode: themeMode,
-            home: home,
-          );
-        },
-      ),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: AppThemeController.mode,
+      child: const WelcomeScreen(),
+      builder: (context, themeMode, home) {
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'Smart Loop',
+          theme: AppTheme.light,
+          darkTheme: AppTheme.dark,
+          themeMode: themeMode,
+          builder: (context, child) => AppDataScope(
+            controller: _appDataController,
+            child: child ?? const SizedBox.shrink(),
+          ),
+          home: home,
+        );
+      },
     );
   }
 }

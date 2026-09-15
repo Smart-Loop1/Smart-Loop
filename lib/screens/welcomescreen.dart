@@ -104,7 +104,7 @@ class _VerseText extends StatelessWidget {
         child: Column(
           children: [
             Text(
-              'قال تعالى:',
+              ':قال تعالى',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.white54,
@@ -114,7 +114,7 @@ class _VerseText extends StatelessWidget {
             ),
             SizedBox(height: 7),
             Text(
-              '﴾وَجَعَلْنَا مِنَ الْمَاءِ كُلَّ شَيْءٍ حَيٍّ﴿',
+              '﴿وَجَعَلْنَا مِنَ الْمَاءِ كُلَّ شَيْءٍ حَيٍّ﴾',
               textAlign: TextAlign.center,
               textDirection: TextDirection.rtl,
               style: TextStyle(

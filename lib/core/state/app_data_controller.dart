@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:finalproject/core/utils/saudi_residential_water_tariff.dart';
+import 'package:finalproject/models/daily_usage_goal.dart';
 import 'package:finalproject/models/device_location.dart';
 import 'package:finalproject/models/water_loop_reading.dart';
 import 'package:finalproject/models/waterloop.dart';
@@ -18,9 +20,81 @@ class AppDataController extends ChangeNotifier {
   Future<void> _saveQueue = Future.value();
   StreamSubscription<Map<String, WaterLoopReading>>? _deviceSubscription;
   Map<String, WaterLoopReading> _cloudReadings = const {};
+  DailyUsageGoal _dailyGoal = const DailyUsageGoal();
+  String _dailyUsageDateKey = '';
+  double _dailyUsageLiters = 0;
+  final Map<String, double> _lastDeviceTotals = {};
+  final Map<String, double> _dailyUsageHistory = {};
+  Timer? _dailyResetTimer;
 
   List<DeviceLocation> get locations => List.unmodifiable(_locations);
   List<WaterLoop> get ungroupedDevices => List.unmodifiable(_ungroupedDevices);
+  List<WaterLoop> get allDevices => [
+    ..._ungroupedDevices,
+    for (final location in _locations) ...location.devices,
+  ];
+  DailyUsageGoal get dailyGoal => _dailyGoal;
+  String get dailyUsageDateKey => _dailyUsageDateKey;
+  double get dailyUsageLiters => _dailyUsageLiters;
+  double get usageGoalLiters {
+    if (_dailyGoal.period == UsageGoalPeriod.daily) {
+      return _dailyUsageLiters;
+    }
+    final now = DateTime.now();
+    return usageForMonth(now.year, now.month);
+  }
+
+  double get usageGoalEstimatedCost =>
+      SaudiResidentialWaterTariff.estimateWaterCost(usageGoalLiters);
+  double get dailyGoalCurrentValue => _dailyGoal.unit == DailyGoalUnit.liters
+      ? usageGoalLiters
+      : usageGoalEstimatedCost;
+  String get usageGoalPeriodKey {
+    if (_dailyGoal.period == UsageGoalPeriod.daily) {
+      return _dailyUsageDateKey;
+    }
+    final now = DateTime.now();
+    return [
+      now.year.toString().padLeft(4, '0'),
+      now.month.toString().padLeft(2, '0'),
+    ].join('-');
+  }
+
+  double get dailyGoalProgress {
+    if (!_dailyGoal.enabled || _dailyGoal.limit <= 0) return 0;
+    return dailyGoalCurrentValue / _dailyGoal.limit;
+  }
+
+  double usageForMonth(int year, int month) {
+    final prefix = [
+      year.toString().padLeft(4, '0'),
+      month.toString().padLeft(2, '0'),
+    ].join('-');
+    return _dailyUsageHistory.entries
+        .where((entry) => entry.key.startsWith(prefix))
+        .fold(0, (sum, entry) => sum + entry.value);
+  }
+
+  double usageForYear(int year) {
+    final prefix = '${year.toString().padLeft(4, '0')}-';
+    return _dailyUsageHistory.entries
+        .where((entry) => entry.key.startsWith(prefix))
+        .fold(0, (sum, entry) => sum + entry.value);
+  }
+
+  double estimatedCostForMonth(int year, int month) {
+    return SaudiResidentialWaterTariff.estimateWaterCost(
+      usageForMonth(year, month),
+    );
+  }
+
+  double estimatedCostForYear(int year) {
+    var cost = 0.0;
+    for (var month = 1; month <= 12; month++) {
+      cost += estimatedCostForMonth(year, month);
+    }
+    return cost;
+  }
 
   Future<void> load() async {
     final storedData = await _storage.load();
@@ -30,7 +104,18 @@ class AppDataController extends ChangeNotifier {
     _ungroupedDevices
       ..clear()
       ..addAll(storedData.ungroupedDevices);
-    notifyListeners();
+    _dailyGoal = storedData.dailyGoal;
+    _dailyUsageDateKey = storedData.dailyUsageDateKey ?? '';
+    _dailyUsageLiters = storedData.dailyUsageLiters;
+    _lastDeviceTotals
+      ..clear()
+      ..addAll(storedData.lastDeviceTotals);
+    _dailyUsageHistory
+      ..clear()
+      ..addAll(storedData.dailyUsageHistory);
+    _resetDailyUsageIfNeeded();
+    _scheduleDailyReset();
+    _notifyAndPersist();
   }
 
   void connectToCloud() {
@@ -72,6 +157,11 @@ class AppDataController extends ChangeNotifier {
 
   void addLocation(DeviceLocation location) {
     _locations.add(location);
+    _notifyAndPersist();
+  }
+
+  void updateDailyGoal(DailyUsageGoal goal) {
+    _dailyGoal = goal;
     _notifyAndPersist();
   }
 
@@ -173,6 +263,7 @@ class AppDataController extends ChangeNotifier {
   }
 
   void _applyCloudReadings(Map<String, WaterLoopReading> readings) {
+    final dailyUsageChanged = _recordDailyUsage(readings);
     _cloudReadings = readings;
     var changed = false;
     var createdDemoDevice = false;
@@ -224,11 +315,69 @@ class AppDataController extends ChangeNotifier {
       changed = true;
     }
 
-    if (createdDemoDevice) {
+    if (createdDemoDevice || dailyUsageChanged) {
       _notifyAndPersist();
     } else if (changed) {
       notifyListeners();
     }
+  }
+
+  bool _recordDailyUsage(Map<String, WaterLoopReading> readings) {
+    var changed = _resetDailyUsageIfNeeded();
+
+    for (final entry in readings.entries) {
+      final currentTotal = entry.value.totalLiters;
+      if (!currentTotal.isFinite || currentTotal < 0) continue;
+
+      final previousTotal = _lastDeviceTotals[entry.key];
+      if (previousTotal == null) {
+        _lastDeviceTotals[entry.key] = currentTotal;
+        changed = true;
+        continue;
+      }
+      if (currentTotal == previousTotal) continue;
+
+      _lastDeviceTotals[entry.key] = currentTotal;
+      changed = true;
+
+      final addedLiters = currentTotal >= previousTotal
+          ? currentTotal - previousTotal
+          : currentTotal;
+      if (addedLiters <= 0) continue;
+
+      _dailyUsageLiters += addedLiters;
+      _dailyUsageHistory[_dailyUsageDateKey] = _dailyUsageLiters;
+    }
+
+    return changed;
+  }
+
+  bool _resetDailyUsageIfNeeded() {
+    final todayKey = _dateKey(DateTime.now());
+    if (_dailyUsageDateKey == todayKey) return false;
+
+    _dailyUsageDateKey = todayKey;
+    _dailyUsageLiters = _dailyUsageHistory[todayKey] ?? 0;
+    _lastDeviceTotals.clear();
+    return true;
+  }
+
+  void _scheduleDailyReset() {
+    _dailyResetTimer?.cancel();
+    final now = DateTime.now();
+    final nextDay = DateTime(now.year, now.month, now.day + 1);
+    _dailyResetTimer = Timer(nextDay.difference(now), () {
+      if (_resetDailyUsageIfNeeded()) _notifyAndPersist();
+      _scheduleDailyReset();
+    });
+  }
+
+  static String _dateKey(DateTime value) {
+    return [
+      value.year.toString().padLeft(4, '0'),
+      value.month.toString().padLeft(2, '0'),
+      value.day.toString().padLeft(2, '0'),
+    ].join('-');
   }
 
   WaterLoop _syncDevice(WaterLoop device) {
@@ -258,19 +407,44 @@ class AppDataController extends ChangeNotifier {
 
     final locationsSnapshot = List<DeviceLocation>.of(_locations);
     final devicesSnapshot = List<WaterLoop>.of(_ungroupedDevices);
+    final dailyGoalSnapshot = _dailyGoal;
+    final dailyUsageDateKeySnapshot = _dailyUsageDateKey;
+    final dailyUsageLitersSnapshot = _dailyUsageLiters;
+    final lastDeviceTotalsSnapshot = Map<String, double>.of(_lastDeviceTotals);
+    final dailyUsageHistorySnapshot = Map<String, double>.of(
+      _dailyUsageHistory,
+    );
     _saveQueue = _saveQueue.then(
-      (_) => _saveSnapshot(locationsSnapshot, devicesSnapshot),
+      (_) => _saveSnapshot(
+        locationsSnapshot,
+        devicesSnapshot,
+        dailyGoalSnapshot,
+        dailyUsageDateKeySnapshot,
+        dailyUsageLitersSnapshot,
+        lastDeviceTotalsSnapshot,
+        dailyUsageHistorySnapshot,
+      ),
     );
   }
 
   Future<void> _saveSnapshot(
     List<DeviceLocation> locations,
     List<WaterLoop> ungroupedDevices,
+    DailyUsageGoal dailyGoal,
+    String dailyUsageDateKey,
+    double dailyUsageLiters,
+    Map<String, double> lastDeviceTotals,
+    Map<String, double> dailyUsageHistory,
   ) async {
     try {
       await _storage.save(
         locations: locations,
         ungroupedDevices: ungroupedDevices,
+        dailyGoal: dailyGoal,
+        dailyUsageDateKey: dailyUsageDateKey,
+        dailyUsageLiters: dailyUsageLiters,
+        lastDeviceTotals: lastDeviceTotals,
+        dailyUsageHistory: dailyUsageHistory,
       );
     } catch (error) {
       debugPrint('Could not save Smart Loop data: $error');
@@ -279,6 +453,7 @@ class AppDataController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _dailyResetTimer?.cancel();
     _deviceSubscription?.cancel();
     super.dispose();
   }

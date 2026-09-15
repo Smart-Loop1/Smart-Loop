@@ -1,3 +1,4 @@
+import 'package:finalproject/extensions/water_loop_extensions.dart';
 import 'package:finalproject/models/device_location.dart';
 import 'package:finalproject/models/waterloop.dart';
 
@@ -60,13 +61,20 @@ class AnalyticsReport {
   factory AnalyticsReport.fromDevices({
     required List<DeviceLocation> locations,
     required List<WaterLoop> ungroupedDevices,
+    double? thisMonthLiters,
+    double? thisMonthCost,
+    double? lastMonthLiters,
+    double? lastMonthCost,
+    double? yearlyLiters,
+    double? yearlyCost,
+    List<MonthlyUsage> monthlyUsage = const [],
   }) {
     final devices = <DeviceAnalytics>[
       for (final device in ungroupedDevices)
         DeviceAnalytics(
           name: device.name,
           location: 'Unassigned',
-          status: 'Waiting for cloud connection',
+          status: device.connectionLabel,
           totalLiters: device.totalLiters,
           currentFlowRate: device.currentFlowRate,
         ),
@@ -75,7 +83,7 @@ class AnalyticsReport {
           DeviceAnalytics(
             name: device.name,
             location: location.name,
-            status: 'Waiting for cloud connection',
+            status: device.connectionLabel,
             totalLiters: device.totalLiters,
             currentFlowRate: device.currentFlowRate,
           ),
@@ -97,8 +105,15 @@ class AnalyticsReport {
     return AnalyticsReport(
       generatedAt: DateTime.now(),
       periodLabel: 'All available data',
+      thisMonthLiters: thisMonthLiters,
+      thisMonthCost: thisMonthCost,
+      lastMonthLiters: lastMonthLiters,
+      lastMonthCost: lastMonthCost,
+      yearlyLiters: yearlyLiters,
+      yearlyCost: yearlyCost,
       totalDevices: devices.length,
       devices: devices,
+      monthlyUsage: monthlyUsage,
       locationUsage: locationUsage,
     );
   }

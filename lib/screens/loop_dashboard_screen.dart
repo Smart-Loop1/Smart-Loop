@@ -1,6 +1,9 @@
 import 'package:finalproject/core/constants/app_colors.dart';
 import 'package:finalproject/core/state/app_data_scope.dart';
+import 'package:finalproject/core/utils/saudi_residential_water_tariff.dart';
+import 'package:finalproject/extensions/water_loop_extensions.dart';
 import 'package:finalproject/models/waterloop.dart';
+import 'package:finalproject/widgets/device_status_badge.dart';
 import 'package:finalproject/widgets/gradient_app_bar.dart';
 import 'package:flutter/material.dart';
 
@@ -13,14 +16,18 @@ class LoopDashboardScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final currentLoop = AppDataScope.of(context).deviceById(loop.id) ?? loop;
-    final flowRate = currentLoop.currentFlowRate;
-    final totalLiters = currentLoop.totalLiters;
-    final flowRateText = flowRate == null
-        ? '-- L / min'
-        : '${flowRate.toStringAsFixed(1)} L / min';
-    final totalLitersText = totalLiters == null
-        ? '-- L'
-        : '${totalLiters.toStringAsFixed(1)} L';
+    final flowRate = currentLoop.isOnline
+        ? currentLoop.currentFlowRate ?? 0.0
+        : 0.0;
+    final totalLiters = currentLoop.totalLiters ?? 0.0;
+    final estimatedCost = SaudiResidentialWaterTariff.estimateWaterCost(
+      totalLiters,
+    );
+    final estimatedCostText = estimatedCost < 0.01
+        ? '${estimatedCost.toStringAsFixed(5)} SAR'
+        : '${estimatedCost.toStringAsFixed(2)} SAR';
+    final flowRateText = '${flowRate.toStringAsFixed(2)} L / min';
+    final totalLitersText = '${totalLiters.toStringAsFixed(2)} L';
 
     return Scaffold(
       appBar: GradientAppBar(
@@ -46,19 +53,28 @@ class LoopDashboardScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 16),
-                const Expanded(
+                Expanded(
                   child: _InfoCard(
                     title: 'Est. Cost',
-                    value: '-- SAR',
+                    value: estimatedCostText,
                     icon: Icons.receipt_long_rounded,
                     accentColor: AppColors.secondary,
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 10),
+            Text(
+              'Residential water tariff only · excludes wastewater, VAT, and meter fees.',
+              style: TextStyle(
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 11,
+                height: 1.35,
+              ),
+            ),
             const SizedBox(height: 30),
             Text(
-              'System Status & Alerts',
+              'Device Status',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -206,6 +222,9 @@ class _SystemStatusCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final statusColor = loop.isOnline
+        ? AppColors.deviceOnline
+        : AppColors.deviceOffline;
 
     return Container(
       decoration: BoxDecoration(
@@ -222,36 +241,42 @@ class _SystemStatusCard extends StatelessWidget {
         color: colorScheme.surface,
         borderRadius: BorderRadius.circular(20),
         clipBehavior: Clip.antiAlias,
-        child: ListTile(
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 20,
-            vertical: 10,
-          ),
-          leading: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: AppColors.primaryAccent.withValues(alpha: 0.12),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.cloud_sync_rounded,
-              color: AppColors.primaryAccent,
-              size: 26,
-            ),
-          ),
-          title: Text(
-            loop.status == 'online'
-                ? 'Device connected'
-                : loop.status == 'off'
-                ? 'System switched off'
-                : 'Waiting for device status',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-          subtitle: Text(
-            loop.lastSeen == null
-                ? 'System alerts will appear when cloud data is received.'
-                : 'Live readings received from ${loop.id}.',
-            style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(11),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.10),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  loop.isOnline
+                      ? Icons.cloud_done_rounded
+                      : Icons.cloud_off_rounded,
+                  color: statusColor,
+                  size: 26,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    DeviceStatusBadge(device: loop),
+                    const SizedBox(height: 8),
+                    Text(
+                      loop.lastReadingLabel,
+                      style: TextStyle(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),

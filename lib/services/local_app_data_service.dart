@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:finalproject/models/daily_usage_goal.dart';
 import 'package:finalproject/models/device_location.dart';
 import 'package:finalproject/models/waterloop.dart';
 import 'package:flutter/foundation.dart';
@@ -9,10 +10,20 @@ class StoredAppData {
   const StoredAppData({
     this.locations = const [],
     this.ungroupedDevices = const [],
+    this.dailyGoal = const DailyUsageGoal(),
+    this.dailyUsageDateKey,
+    this.dailyUsageLiters = 0,
+    this.lastDeviceTotals = const {},
+    this.dailyUsageHistory = const {},
   });
 
   final List<DeviceLocation> locations;
   final List<WaterLoop> ungroupedDevices;
+  final DailyUsageGoal dailyGoal;
+  final String? dailyUsageDateKey;
+  final double dailyUsageLiters;
+  final Map<String, double> lastDeviceTotals;
+  final Map<String, double> dailyUsageHistory;
 }
 
 class LocalAppDataService {
@@ -36,6 +47,12 @@ class LocalAppDataService {
       return StoredAppData(
         locations: _readLocations(decoded['locations']),
         ungroupedDevices: _readDevices(decoded['ungroupedDevices']),
+        dailyGoal: DailyUsageGoal.fromJson(decoded['dailyGoal']),
+        dailyUsageDateKey: decoded['dailyUsageDateKey'] as String?,
+        dailyUsageLiters:
+            (decoded['dailyUsageLiters'] as num?)?.toDouble() ?? 0,
+        lastDeviceTotals: _readDoubleMap(decoded['lastDeviceTotals']),
+        dailyUsageHistory: _readDoubleMap(decoded['dailyUsageHistory']),
       );
     } catch (error) {
       debugPrint('Could not read saved Smart Loop data: $error');
@@ -46,12 +63,22 @@ class LocalAppDataService {
   Future<void> save({
     required List<DeviceLocation> locations,
     required List<WaterLoop> ungroupedDevices,
+    required DailyUsageGoal dailyGoal,
+    required String dailyUsageDateKey,
+    required double dailyUsageLiters,
+    required Map<String, double> lastDeviceTotals,
+    required Map<String, double> dailyUsageHistory,
   }) {
     final storedJson = jsonEncode({
       'locations': locations.map((location) => location.toJson()).toList(),
       'ungroupedDevices': ungroupedDevices
           .map((device) => device.toJson())
           .toList(),
+      'dailyGoal': dailyGoal.toJson(),
+      'dailyUsageDateKey': dailyUsageDateKey,
+      'dailyUsageLiters': dailyUsageLiters,
+      'lastDeviceTotals': lastDeviceTotals,
+      'dailyUsageHistory': dailyUsageHistory,
     });
 
     return _preferences.setString(_storageKey, storedJson);
@@ -75,5 +102,15 @@ class LocalAppDataService {
         if (device is Map<Object?, Object?>)
           WaterLoop.fromJson(Map<String, dynamic>.from(device)),
     ];
+  }
+
+  static Map<String, double> _readDoubleMap(Object? value) {
+    if (value is! Map<Object?, Object?>) return const {};
+
+    return {
+      for (final entry in value.entries)
+        if (entry.value is num)
+          entry.key.toString(): (entry.value as num).toDouble(),
+    };
   }
 }

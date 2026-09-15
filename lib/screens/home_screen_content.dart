@@ -3,14 +3,19 @@ import 'package:finalproject/core/state/app_data_controller.dart';
 import 'package:finalproject/core/state/app_data_scope.dart';
 import 'package:finalproject/extensions/app_extensions.dart';
 import 'package:finalproject/extensions/location_icon_extensions.dart';
+import 'package:finalproject/extensions/water_loop_extensions.dart';
+import 'package:finalproject/models/daily_usage_goal.dart';
 import 'package:finalproject/models/device_location.dart';
 import 'package:finalproject/models/waterloop.dart';
 import 'package:finalproject/screens/loop_dashboard_screen.dart';
 import 'package:finalproject/screens/notifications_screen.dart';
+import 'package:finalproject/widgets/daily_usage_goal_card.dart';
+import 'package:finalproject/widgets/device_status_badge.dart';
 import 'package:finalproject/widgets/gradient_app_bar.dart';
 import 'package:finalproject/widgets/loop_offer_banner.dart';
 import 'package:finalproject/widgets/water_drop_mark.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class HomeScreenContent extends StatefulWidget {
   const HomeScreenContent({super.key});
@@ -23,12 +28,17 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   AppDataController get _appData => AppDataScope.read(context);
   List<DeviceLocation> get _locations => _appData.locations;
 
+  String _alertDateKey = '';
+  int _notifiedGoalLevel = 0;
+
   @override
   Widget build(BuildContext context) {
     final appData = AppDataScope.of(context);
     final locations = appData.locations;
     final ungroupedDevices = appData.ungroupedDevices;
     final isEmpty = locations.isEmpty && ungroupedDevices.isEmpty;
+
+    _scheduleDailyGoalAlert(appData);
 
     return Scaffold(
       appBar: GradientAppBar(
@@ -51,6 +61,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
         padding: const EdgeInsets.all(20),
         children: [
           const LoopOfferBanner(),
+          const SizedBox(height: 20),
+          DailyUsageGoalCard(appData: appData, onEdit: _showDailyGoalSheet),
           const SizedBox(height: 26),
           if (isEmpty)
             const _EmptyDevicesView()
@@ -84,6 +96,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
               ),
             ],
           ],
+          const SizedBox(height: 72),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -98,6 +111,322 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
 
   void _openDashboard(WaterLoop device) {
     context.pushScreen<void>(LoopDashboardScreen(loop: device));
+  }
+
+  void _scheduleDailyGoalAlert(AppDataController appData) {
+    if (_alertDateKey != appData.usageGoalPeriodKey) {
+      _alertDateKey = appData.usageGoalPeriodKey;
+      _notifiedGoalLevel = 0;
+    }
+
+    if (!appData.dailyGoal.enabled) {
+      _notifiedGoalLevel = 0;
+      return;
+    }
+
+    final progress = appData.dailyGoalProgress;
+    final alertLevel = progress >= 1
+        ? 2
+        : progress >= 0.8
+        ? 1
+        : 0;
+    if (alertLevel < _notifiedGoalLevel) {
+      _notifiedGoalLevel = alertLevel;
+      return;
+    }
+    if (alertLevel == 0 || alertLevel <= _notifiedGoalLevel) return;
+
+    _notifiedGoalLevel = alertLevel;
+    final isMonthly = appData.dailyGoal.period == UsageGoalPeriod.monthly;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final exceeded = alertLevel == 2;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            backgroundColor: exceeded
+                ? AppColors.deviceOffline
+                : AppColors.goalNearLimit,
+            content: Text(
+              exceeded
+                  ? '${isMonthly ? 'Monthly' : 'Daily'} water limit exceeded.'
+                  : 'You have reached 80% of your ${isMonthly ? 'monthly' : 'daily'} water goal.',
+              style: const TextStyle(
+                color: AppColors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        );
+    });
+  }
+
+  Future<void> _showDailyGoalSheet() async {
+    final currentGoal = _appData.dailyGoal;
+    var enabled = true;
+    var selectedPeriod = currentGoal.period;
+    var selectedUnit = currentGoal.unit;
+    var errorText = '';
+    final limitController = TextEditingController(
+      text: currentGoal.limit.toStringAsFixed(2),
+    );
+
+    final result = await showModalBottomSheet<_UsageGoalInput>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final colorScheme = Theme.of(context).colorScheme;
+
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  20,
+                  4,
+                  20,
+                  20 + MediaQuery.viewInsetsOf(context).bottom,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Water Usage Goal',
+                        style: TextStyle(
+                          color: colorScheme.onSurface,
+                          fontSize: 21,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Choose a daily or monthly limit and get warned before exceeding it.',
+                        style: TextStyle(
+                          color: colorScheme.onSurfaceVariant,
+                          fontSize: 13,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryAccent.withValues(
+                            alpha: 0.07,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: SwitchListTile(
+                          title: const Text(
+                            'Enable usage goal',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          value: enabled,
+                          activeThumbColor: AppColors.primaryAccent,
+                          onChanged: (value) {
+                            setSheetState(() => enabled = value);
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Text(
+                        'Goal period',
+                        style: TextStyle(
+                          color: colorScheme.onSurface,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: SegmentedButton<UsageGoalPeriod>(
+                          segments: const [
+                            ButtonSegment(
+                              value: UsageGoalPeriod.daily,
+                              icon: Icon(Icons.today_rounded),
+                              label: Text('Daily'),
+                            ),
+                            ButtonSegment(
+                              value: UsageGoalPeriod.monthly,
+                              icon: Icon(Icons.calendar_month_rounded),
+                              label: Text('Monthly'),
+                            ),
+                          ],
+                          selected: {selectedPeriod},
+                          onSelectionChanged: enabled
+                              ? (selection) {
+                                  setSheetState(() {
+                                    selectedPeriod = selection.first;
+                                    errorText = '';
+                                  });
+                                }
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Text(
+                        'Limit type',
+                        style: TextStyle(
+                          color: colorScheme.onSurface,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: SegmentedButton<DailyGoalUnit>(
+                          segments: const [
+                            ButtonSegment(
+                              value: DailyGoalUnit.liters,
+                              icon: Icon(Icons.water_drop_outlined),
+                              label: Text('Liters'),
+                            ),
+                            ButtonSegment(
+                              value: DailyGoalUnit.cost,
+                              icon: Icon(Icons.payments_outlined),
+                              label: Text('SAR'),
+                            ),
+                          ],
+                          selected: {selectedUnit},
+                          onSelectionChanged: enabled
+                              ? (selection) {
+                                  setSheetState(() {
+                                    selectedUnit = selection.first;
+                                    errorText = '';
+                                  });
+                                }
+                              : null,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      TextField(
+                        controller: limitController,
+                        enabled: enabled,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'^\d*\.?\d{0,5}'),
+                          ),
+                        ],
+                        decoration: InputDecoration(
+                          labelText: selectedPeriod == UsageGoalPeriod.daily
+                              ? 'Daily limit'
+                              : 'Monthly limit',
+                          suffixText: selectedUnit == DailyGoalUnit.liters
+                              ? 'L'
+                              : 'SAR',
+                          errorText: errorText.isEmpty ? null : errorText,
+                          border: const OutlineInputBorder(),
+                        ),
+                      ),
+                      if (selectedUnit == DailyGoalUnit.cost && enabled) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Cost is an estimate based on the residential water tariff.',
+                          style: TextStyle(
+                            color: colorScheme.onSurfaceVariant,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 22),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: FilledButton(
+                          onPressed: () {
+                            final limit = double.tryParse(
+                              limitController.text.trim(),
+                            );
+                            if (enabled && (limit == null || limit <= 0)) {
+                              setSheetState(() {
+                                errorText = 'Enter a limit greater than zero';
+                              });
+                              return;
+                            }
+
+                            Navigator.pop(
+                              sheetContext,
+                              _UsageGoalInput(
+                                enabled: enabled,
+                                period: selectedPeriod,
+                                unit: selectedUnit,
+                                limit: limit != null && limit > 0
+                                    ? limit
+                                    : currentGoal.limit,
+                              ),
+                            );
+                          },
+                          child: const Text(
+                            'Save Goal',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ),
+                      if (currentGoal.enabled) ...[
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: colorScheme.error,
+                              side: BorderSide(color: colorScheme.error),
+                            ),
+                            onPressed: () {
+                              Navigator.pop(
+                                sheetContext,
+                                const _UsageGoalInput.delete(),
+                              );
+                            },
+                            icon: const Icon(Icons.delete_outline_rounded),
+                            label: const Text(
+                              'Delete Goal',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (result == null) {
+      limitController.dispose();
+      return;
+    }
+
+    // The sheet future completes when pop starts, before its reverse animation
+    // has necessarily released inherited-widget dependencies.
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+    limitController.dispose();
+    if (!mounted) return;
+
+    if (result.deleteGoal) {
+      _appData.updateDailyGoal(const DailyUsageGoal());
+      return;
+    }
+
+    _appData.updateDailyGoal(
+      DailyUsageGoal(
+        enabled: result.enabled,
+        period: result.period,
+        unit: result.unit,
+        limit: result.limit,
+      ),
+    );
   }
 
   Future<void> _showAddMenu() async {
@@ -156,6 +485,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     );
 
     if (!mounted || selection == null) return;
+    await _waitForModalDismissal();
+    if (!mounted) return;
 
     switch (selection) {
       case _AddItemType.device:
@@ -168,6 +499,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   Future<void> _addLocation() async {
     final input = await _showLocationDialog();
     if (!mounted || input == null) return;
+    await _waitForModalDismissal();
+    if (!mounted) return;
 
     _appData.addLocation(
       DeviceLocation(
@@ -181,6 +514,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   Future<void> _addDevice({String? initialLocationId}) async {
     final input = await _showDeviceDialog(initialLocationId: initialLocationId);
     if (!mounted || input == null) return;
+    await _waitForModalDismissal();
+    if (!mounted) return;
 
     final device = WaterLoop(id: _appData.nextDeviceId(), name: input.name);
 
@@ -190,6 +525,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   Future<void> _editLocation(DeviceLocation location) async {
     final input = await _showLocationDialog(location: location);
     if (!mounted || input == null) return;
+    await _waitForModalDismissal();
+    if (!mounted) return;
 
     _appData.updateLocation(
       id: location.id,
@@ -207,6 +544,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     );
 
     if (!mounted || !confirmed) return;
+    await _waitForModalDismissal();
+    if (!mounted) return;
 
     _appData.deleteLocation(location.id);
   }
@@ -221,6 +560,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     );
 
     if (!mounted || newName == null || newName == device.name) return;
+    await _waitForModalDismissal();
+    if (!mounted) return;
 
     _appData.renameDevice(device.id, newName);
   }
@@ -232,8 +573,14 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
     );
 
     if (!mounted || !confirmed) return;
+    await _waitForModalDismissal();
+    if (!mounted) return;
 
     _appData.deleteDevice(device.id);
+  }
+
+  Future<void> _waitForModalDismissal() {
+    return Future<void>.delayed(const Duration(milliseconds: 300));
   }
 
   Future<bool> _confirmDelete({
@@ -855,9 +1202,9 @@ class _DeviceTile extends StatelessWidget {
         device.name,
         style: const TextStyle(fontWeight: FontWeight.bold),
       ),
-      subtitle: Text(
-        'Waiting for cloud connection',
-        style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
+      subtitle: _DeviceStatusDetails(
+        device: device,
+        textColor: colorScheme.onSurfaceVariant,
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
@@ -871,6 +1218,34 @@ class _DeviceTile extends StatelessWidget {
         ],
       ),
       onTap: onTap,
+    );
+  }
+}
+
+class _DeviceStatusDetails extends StatelessWidget {
+  const _DeviceStatusDetails({required this.device, required this.textColor});
+
+  final WaterLoop device;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Row(
+        children: [
+          DeviceStatusBadge(device: device, compact: true),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              device.lastReadingLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: textColor, fontSize: 12),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -954,6 +1329,28 @@ class _LocationInput {
 
   final String name;
   final LocationIconType iconType;
+}
+
+class _UsageGoalInput {
+  const _UsageGoalInput({
+    required this.enabled,
+    required this.period,
+    required this.unit,
+    required this.limit,
+  }) : deleteGoal = false;
+
+  const _UsageGoalInput.delete()
+    : enabled = false,
+      period = UsageGoalPeriod.daily,
+      unit = DailyGoalUnit.liters,
+      limit = 10,
+      deleteGoal = true;
+
+  final bool enabled;
+  final UsageGoalPeriod period;
+  final DailyGoalUnit unit;
+  final double limit;
+  final bool deleteGoal;
 }
 
 class _DeviceInput {

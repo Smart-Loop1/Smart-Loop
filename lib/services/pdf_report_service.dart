@@ -868,7 +868,7 @@ abstract final class PdfReportService {
 
   static String _formatLiters(double? value) {
     if (value == null) return '-- L';
-    return '${_formatNumber(value)} L';
+    return '${_formatNumber(value, decimals: 2)} L';
   }
 
   static String _formatCost(double? value) {

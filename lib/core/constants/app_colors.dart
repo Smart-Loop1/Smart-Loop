@@ -12,6 +12,10 @@ abstract final class AppColors {
   static const black = Color(0x14000000);
   static const analyticsShadow = Color(0x331976D2);
   static const cardShadow = Color(0x0F9E9E9E);
+  static const deviceOnline = Color(0xFF239B68);
+  static const deviceOffline = Color(0xFFD94B4B);
+  static const goalWarning = Color(0xFFE5A000);
+  static const goalNearLimit = Color(0xFFE97924);
 }
 
 abstract final class AppGradients {

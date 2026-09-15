@@ -1,4 +1,5 @@
 import 'package:finalproject/core/constants/app_colors.dart';
+import 'package:finalproject/core/state/app_data_controller.dart';
 import 'package:finalproject/core/state/app_data_scope.dart';
 import 'package:finalproject/models/analytics_report.dart';
 import 'package:finalproject/services/pdf_report_service.dart';
@@ -13,6 +14,22 @@ class AnalyticsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final appData = AppDataScope.of(context);
+    final now = DateTime.now();
+    final lastMonth = DateTime(now.year, now.month - 1);
+    final thisMonthLiters = appData.usageForMonth(now.year, now.month);
+    final lastMonthLiters = appData.usageForMonth(
+      lastMonth.year,
+      lastMonth.month,
+    );
+    final thisMonthCost = appData.estimatedCostForMonth(now.year, now.month);
+    final lastMonthCost = appData.estimatedCostForMonth(
+      lastMonth.year,
+      lastMonth.month,
+    );
+    final yearlyLiters = appData.usageForYear(now.year);
+    final yearlyCost = appData.estimatedCostForYear(now.year);
+    final pastMonths = _buildMonthlyUsage(appData, now, count: 3, startAt: 1);
 
     return Scaffold(
       appBar: const GradientAppBar(
@@ -33,26 +50,34 @@ class AnalyticsScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            const Row(
+            Row(
               children: [
                 Expanded(
                   child: _ComparisonCard(
                     title: 'This Month',
+                    liters: thisMonthLiters,
+                    cost: thisMonthCost,
                     isCurrent: true,
                     icon: Icons.calendar_today_rounded,
                   ),
                 ),
-                SizedBox(width: 16),
+                const SizedBox(width: 16),
                 Expanded(
                   child: _ComparisonCard(
                     title: 'Last Month',
+                    liters: lastMonthLiters,
+                    cost: lastMonthCost,
                     icon: Icons.history_rounded,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 24),
-            const _YearlyTotalCard(),
+            _YearlyTotalCard(
+              liters: yearlyLiters,
+              cost: yearlyCost,
+              year: now.year,
+            ),
             const SizedBox(height: 30),
             Text(
               'Past Months Breakdown',
@@ -63,13 +88,30 @@ class AnalyticsScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            const _MonthlyDataPlaceholder(),
+            _MonthlyUsageList(items: pastMonths),
             const SizedBox(height: 24),
             _PdfReportCard(onPressed: () => _generatePdfReport(context)),
           ],
         ),
       ),
     );
+  }
+
+  List<MonthlyUsage> _buildMonthlyUsage(
+    AppDataController appData,
+    DateTime anchor, {
+    required int count,
+    required int startAt,
+  }) {
+    return List.generate(count, (index) {
+      final date = DateTime(anchor.year, anchor.month - startAt - index);
+      final liters = appData.usageForMonth(date.year, date.month);
+      return MonthlyUsage(
+        month: _monthLabel(date),
+        liters: liters,
+        cost: appData.estimatedCostForMonth(date.year, date.month),
+      );
+    });
   }
 
   Future<void> _generatePdfReport(BuildContext context) async {
@@ -82,9 +124,21 @@ class AnalyticsScreen extends StatelessWidget {
 
     try {
       final appData = AppDataScope.read(context);
+      final now = DateTime.now();
+      final lastMonth = DateTime(now.year, now.month - 1);
       final report = AnalyticsReport.fromDevices(
         locations: appData.locations,
         ungroupedDevices: appData.ungroupedDevices,
+        thisMonthLiters: appData.usageForMonth(now.year, now.month),
+        thisMonthCost: appData.estimatedCostForMonth(now.year, now.month),
+        lastMonthLiters: appData.usageForMonth(lastMonth.year, lastMonth.month),
+        lastMonthCost: appData.estimatedCostForMonth(
+          lastMonth.year,
+          lastMonth.month,
+        ),
+        yearlyLiters: appData.usageForYear(now.year),
+        yearlyCost: appData.estimatedCostForYear(now.year),
+        monthlyUsage: _buildMonthlyUsage(appData, now, count: 12, startAt: 0),
       );
       final logoData = await rootBundle.load(
         'assets/images/smart_loop_logo.png',
@@ -121,11 +175,15 @@ class AnalyticsScreen extends StatelessWidget {
 class _ComparisonCard extends StatelessWidget {
   const _ComparisonCard({
     required this.title,
+    required this.liters,
+    required this.cost,
     required this.icon,
     this.isCurrent = false,
   });
 
   final String title;
+  final double liters;
+  final double cost;
   final IconData icon;
   final bool isCurrent;
 
@@ -169,7 +227,7 @@ class _ComparisonCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            '-- L',
+            ' L',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -178,7 +236,7 @@ class _ComparisonCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '-- SAR',
+            _formatCost(cost),
             style: TextStyle(
               fontSize: 13,
               color: colorScheme.onSurfaceVariant,
@@ -192,7 +250,15 @@ class _ComparisonCard extends StatelessWidget {
 }
 
 class _YearlyTotalCard extends StatelessWidget {
-  const _YearlyTotalCard();
+  const _YearlyTotalCard({
+    required this.liters,
+    required this.cost,
+    required this.year,
+  });
+
+  final double liters;
+  final double cost;
+  final int year;
 
   @override
   Widget build(BuildContext context) {
@@ -210,14 +276,14 @@ class _YearlyTotalCard extends StatelessWidget {
           ),
         ],
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Yearly Total',
+                'Yearly Total ()',
                 style: TextStyle(
                   color: Colors.white70,
                   fontSize: 15,
@@ -229,7 +295,7 @@ class _YearlyTotalCard extends StatelessWidget {
           ),
           SizedBox(height: 12),
           Text(
-            '-- Liters',
+            ' Liters',
             style: TextStyle(
               color: Colors.white,
               fontSize: 28,
@@ -238,7 +304,7 @@ class _YearlyTotalCard extends StatelessWidget {
           ),
           SizedBox(height: 6),
           Text(
-            'Estimated Yearly Cost: -- SAR',
+            'Estimated Yearly Cost: ',
             style: TextStyle(color: Colors.white, fontSize: 14),
           ),
         ],
@@ -247,16 +313,44 @@ class _YearlyTotalCard extends StatelessWidget {
   }
 }
 
-class _MonthlyDataPlaceholder extends StatelessWidget {
-  const _MonthlyDataPlaceholder();
+class _MonthlyUsageList extends StatelessWidget {
+  const _MonthlyUsageList({required this.items});
+
+  final List<MonthlyUsage> items;
+
+  @override
+  Widget build(BuildContext context) {
+    const colors = [
+      AppColors.primaryAccent,
+      AppColors.primary,
+      AppColors.secondary,
+    ];
+
+    return Column(
+      children: [
+        for (var index = 0; index < items.length; index++)
+          _MonthlyUsageTile(
+            item: items[index],
+            color: colors[index % colors.length],
+          ),
+      ],
+    );
+  }
+}
+
+class _MonthlyUsageTile extends StatelessWidget {
+  const _MonthlyUsageTile({required this.item, required this.color});
+
+  final MonthlyUsage item;
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
         color: colorScheme.surface,
         borderRadius: BorderRadius.circular(16),
@@ -268,23 +362,47 @@ class _MonthlyDataPlaceholder extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
+      child: Row(
         children: [
-          Icon(Icons.cloud_sync_rounded, color: colorScheme.primary, size: 30),
-          const SizedBox(height: 10),
-          Text(
-            'Waiting for cloud data',
-            style: TextStyle(
-              color: colorScheme.onSurface,
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.date_range_rounded, color: color, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              item.month,
+              style: TextStyle(
+                color: colorScheme.onSurface,
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            'Monthly history will appear when data is received.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${item.liters.toStringAsFixed(2)} L',
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _formatCost(item.cost ?? 0),
+                style: TextStyle(
+                  color: colorScheme.onSurfaceVariant,
+                  fontSize: 11,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -392,4 +510,27 @@ class _PdfReportCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatCost(double value) {
+  final decimals = value.abs() < 0.01 ? 5 : 2;
+  return '${value.toStringAsFixed(decimals)} SAR';
+}
+
+String _monthLabel(DateTime value) {
+  const months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+  return '${months[value.month - 1]} ${value.year}';
 }
