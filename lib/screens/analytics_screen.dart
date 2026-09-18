@@ -227,7 +227,7 @@ class _ComparisonCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            ' L',
+            '${liters.toStringAsFixed(2)} L',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -283,7 +283,7 @@ class _YearlyTotalCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Yearly Total ()',
+                'Yearly Total ($year)',
                 style: TextStyle(
                   color: Colors.white70,
                   fontSize: 15,
@@ -295,7 +295,7 @@ class _YearlyTotalCard extends StatelessWidget {
           ),
           SizedBox(height: 12),
           Text(
-            ' Liters',
+            '${liters.toStringAsFixed(2)} Liters',
             style: TextStyle(
               color: Colors.white,
               fontSize: 28,
@@ -304,7 +304,7 @@ class _YearlyTotalCard extends StatelessWidget {
           ),
           SizedBox(height: 6),
           Text(
-            'Estimated Yearly Cost: ',
+            'Estimated Yearly Cost: ${_formatCost(cost)}',
             style: TextStyle(color: Colors.white, fontSize: 14),
           ),
         ],

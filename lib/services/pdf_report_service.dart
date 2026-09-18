@@ -132,7 +132,7 @@ abstract final class PdfReportService {
           pw.SizedBox(height: 10),
           _insightsCard(report),
           pw.SizedBox(height: 22),
-          _cloudNote(),
+          _cloudNote(report),
           pw.SizedBox(height: 14),
           _contactCard(),
         ],
@@ -230,7 +230,12 @@ abstract final class PdfReportService {
     return pw.Row(
       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
       children: [
-        _metaItem('REPORT STATUS', 'Waiting for cloud data'),
+        _metaItem(
+          'REPORT STATUS',
+          report.thisMonthLiters == null
+              ? 'Waiting for cloud data'
+              : 'Data synchronized',
+        ),
         _metaItem('GENERATED', _formatDate(report.generatedAt)),
         _metaItem('CURRENCY', 'SAR'),
       ],
@@ -693,7 +698,7 @@ abstract final class PdfReportService {
     );
   }
 
-  static pw.Widget _cloudNote() {
+  static pw.Widget _cloudNote(AnalyticsReport report) {
     return pw.Container(
       width: double.infinity,
       padding: const pw.EdgeInsets.all(16),
@@ -705,7 +710,9 @@ abstract final class PdfReportService {
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Text(
-            'Cloud-ready report',
+            report.thisMonthLiters == null
+                ? 'Cloud-ready report'
+                : 'Smart insights ready',
             style: pw.TextStyle(
               color: PdfColors.white,
               fontSize: 12,
@@ -714,7 +721,9 @@ abstract final class PdfReportService {
           ),
           pw.SizedBox(height: 5),
           pw.Text(
-            'Every placeholder in this report is ready to be replaced by live readings from your Smart Loop hardware and cloud platform.',
+            report.thisMonthLiters == null
+                ? 'Every placeholder in this report is ready to be replaced by live readings from your Smart Loop hardware and cloud platform.'
+                : 'This report combines consumption, device health, cost estimates, and trends in one shareable summary.',
             style: const pw.TextStyle(
               color: PdfColors.white,
               fontSize: 9,
