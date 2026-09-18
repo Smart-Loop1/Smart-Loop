@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/images/smart_loop_logo.png" width="104" alt="Smart Loop logo" />
+  <img src="assets/images/smart_loop_logo_navy_transparent.png" width="104" alt="Smart Loop logo" />
   <h1>Smart Loop</h1>
   <p><strong>Smart water. Clear decisions.</strong></p>
   <p>A connected water-monitoring experience that turns live flow readings into useful insights, goals, cost estimates, and shareable reports.</p>
