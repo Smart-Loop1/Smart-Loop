@@ -25,16 +25,23 @@ class DailyUsageGoalCard extends StatelessWidget {
     final accentColor = _progressColor(
       progress: progress,
       enabled: goal.enabled,
-      disconnected: isDisconnected,
     );
 
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOutCubic,
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
+        color: Color.alphaBlend(
+          accentColor.withValues(alpha: goal.enabled ? 0.07 : 0.02),
+          colorScheme.surface,
+        ),
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: accentColor.withValues(alpha: 0.22)),
+        border: Border.all(
+          color: accentColor.withValues(alpha: goal.enabled ? 0.48 : 0.22),
+          width: goal.enabled ? 1.35 : 1,
+        ),
         boxShadow: const [
           BoxShadow(
             color: AppColors.cardShadow,
@@ -54,16 +61,11 @@ class DailyUsageGoalCard extends StatelessWidget {
     );
   }
 
-  Color _progressColor({
-    required double progress,
-    required bool enabled,
-    required bool disconnected,
-  }) {
+  Color _progressColor({required double progress, required bool enabled}) {
     if (!enabled) return AppColors.primaryAccent;
-    if (disconnected) return Colors.grey;
     if (progress >= 1) return AppColors.deviceOffline;
-    if (progress >= 0.9) return AppColors.goalNearLimit;
-    if (progress >= 0.7) return AppColors.goalWarning;
+    if (progress >= 0.8) return AppColors.goalNearLimit;
+    if (progress >= 0.6) return AppColors.goalWarning;
     return AppColors.primaryAccent;
   }
 }

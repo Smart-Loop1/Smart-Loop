@@ -98,6 +98,7 @@ class AppDataController extends ChangeNotifier {
 
   Future<void> load() async {
     final storedData = await _storage.load();
+    final todayKey = _dateKey(DateTime.now());
     _locations
       ..clear()
       ..addAll(storedData.locations);
@@ -113,6 +114,15 @@ class AppDataController extends ChangeNotifier {
     _dailyUsageHistory
       ..clear()
       ..addAll(storedData.dailyUsageHistory);
+
+    // Older saved data may contain a meter baseline without having counted it
+    // in today's usage. Clear only that stale baseline so the next reading
+    // seeds today's usage from the flow meter's total.
+    if (_dailyUsageDateKey == todayKey &&
+        _dailyUsageLiters == 0 &&
+        !_dailyUsageHistory.containsKey(todayKey)) {
+      _lastDeviceTotals.clear();
+    }
     _resetDailyUsageIfNeeded();
     _scheduleDailyReset();
     _notifyAndPersist();
@@ -332,6 +342,10 @@ class AppDataController extends ChangeNotifier {
       final previousTotal = _lastDeviceTotals[entry.key];
       if (previousTotal == null) {
         _lastDeviceTotals[entry.key] = currentTotal;
+        if (currentTotal > 0) {
+          _dailyUsageLiters += currentTotal;
+          _dailyUsageHistory[_dailyUsageDateKey] = _dailyUsageLiters;
+        }
         changed = true;
         continue;
       }
@@ -358,7 +372,6 @@ class AppDataController extends ChangeNotifier {
 
     _dailyUsageDateKey = todayKey;
     _dailyUsageLiters = _dailyUsageHistory[todayKey] ?? 0;
-    _lastDeviceTotals.clear();
     return true;
   }
 

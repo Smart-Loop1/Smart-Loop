@@ -1,7 +1,7 @@
 import 'package:finalproject/core/constants/app_colors.dart';
 import 'package:finalproject/extensions/app_extensions.dart';
 import 'package:finalproject/screens/mainscreen.dart';
-import 'package:finalproject/widgets/water_drop_mark.dart';
+import 'package:finalproject/widgets/animated_water_drop_mark.dart';
 import 'package:flutter/material.dart';
 
 class WelcomeScreen extends StatelessWidget {
@@ -43,8 +43,8 @@ class WelcomeScreen extends StatelessWidget {
                         child: Column(
                           children: [
                             const Spacer(flex: 2),
-                            const WaterDropMark(size: 94),
-                            const SizedBox(height: 26),
+                            const AnimatedWaterDropMark(size: 94),
+                            const SizedBox(height: 12),
                             const Text(
                               'Smart loop',
                               textAlign: TextAlign.center,

@@ -42,7 +42,7 @@ void printReading(float flowRate) {
       deviceId,
       flowRate,
       totalLiters,
-      systemActive ? "online" : "off");
+      "online");
 }
 }  // namespace
 
@@ -74,12 +74,20 @@ void loop() {
     }
   }
 
+  const unsigned long now = millis();
+
+  // The switch controls water measurement, not device connectivity. Keep a
+  // heartbeat flowing while measurement is paused so the app can distinguish
+  // a connected idle device from a genuinely disconnected ESP32.
   if (!systemActive) {
     takePulseCount();
+    if (now - previousSampleTime >= sampleIntervalMs) {
+      previousSampleTime = now;
+      printReading(0.0F);
+    }
     return;
   }
 
-  const unsigned long now = millis();
   const unsigned long elapsedMs = now - previousSampleTime;
   if (elapsedMs < sampleIntervalMs) return;
 

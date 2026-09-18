@@ -59,7 +59,7 @@ class LoopOfferBanner extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 14),
-          const _ProductImagePlaceholder(),
+          const _ProductImage(),
         ],
       ),
     );
@@ -91,31 +91,23 @@ class _OfferBadge extends StatelessWidget {
   }
 }
 
-class _ProductImagePlaceholder extends StatelessWidget {
-  const _ProductImagePlaceholder();
+class _ProductImage extends StatelessWidget {
+  const _ProductImage();
 
   @override
   Widget build(BuildContext context) {
-    // Replace this placeholder with Image.asset when the product image is ready.
-    return Container(
-      width: 96,
+    return SizedBox(
+      width: 116,
       height: 138,
-      decoration: BoxDecoration(
-        color: AppColors.white.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.white.withValues(alpha: 0.3)),
-      ),
-      child: const Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.add_photo_alternate_outlined, color: Colors.white70),
-          SizedBox(height: 7),
-          Text(
-            'Product\nimage',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white70, fontSize: 11, height: 1.2),
-          ),
-        ],
+      child: Transform.scale(
+        scale: 1.35,
+        alignment: Alignment.centerRight,
+        child: Image.asset(
+          'assets/images/smart_loop_product.png',
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.high,
+          semanticLabel: 'Smart Loop water monitoring device',
+        ),
       ),
     );
   }

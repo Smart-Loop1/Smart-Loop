@@ -30,6 +30,7 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
 
   String _alertDateKey = '';
   int _notifiedGoalLevel = 0;
+  bool _goalSheetOpen = false;
 
   @override
   Widget build(BuildContext context) {
@@ -114,6 +115,8 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
   }
 
   void _scheduleDailyGoalAlert(AppDataController appData) {
+    if (_goalSheetOpen) return;
+
     if (_alertDateKey != appData.usageGoalPeriodKey) {
       _alertDateKey = appData.usageGoalPeriodKey;
       _notifiedGoalLevel = 0;
@@ -172,261 +175,245 @@ class _HomeScreenContentState extends State<HomeScreenContent> {
       text: currentGoal.limit.toStringAsFixed(2),
     );
 
-    final result = await showModalBottomSheet<_UsageGoalInput>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            final colorScheme = Theme.of(context).colorScheme;
+    _goalSheetOpen = true;
+    try {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        builder: (sheetContext) {
+          return StatefulBuilder(
+            builder: (context, setSheetState) {
+              final colorScheme = Theme.of(context).colorScheme;
 
-            return SafeArea(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  20,
-                  4,
-                  20,
-                  20 + MediaQuery.viewInsetsOf(context).bottom,
-                ),
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Water Usage Goal',
-                        style: TextStyle(
-                          color: colorScheme.onSurface,
-                          fontSize: 21,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Choose a daily or monthly limit and get warned before exceeding it.',
-                        style: TextStyle(
-                          color: colorScheme.onSurfaceVariant,
-                          fontSize: 13,
-                          height: 1.4,
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryAccent.withValues(
-                            alpha: 0.07,
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: SwitchListTile(
-                          title: const Text(
-                            'Enable usage goal',
-                            style: TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                          value: enabled,
-                          activeThumbColor: AppColors.primaryAccent,
-                          onChanged: (value) {
-                            setSheetState(() => enabled = value);
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      Text(
-                        'Goal period',
-                        style: TextStyle(
-                          color: colorScheme.onSurface,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        width: double.infinity,
-                        child: SegmentedButton<UsageGoalPeriod>(
-                          segments: const [
-                            ButtonSegment(
-                              value: UsageGoalPeriod.daily,
-                              icon: Icon(Icons.today_rounded),
-                              label: Text('Daily'),
-                            ),
-                            ButtonSegment(
-                              value: UsageGoalPeriod.monthly,
-                              icon: Icon(Icons.calendar_month_rounded),
-                              label: Text('Monthly'),
-                            ),
-                          ],
-                          selected: {selectedPeriod},
-                          onSelectionChanged: enabled
-                              ? (selection) {
-                                  setSheetState(() {
-                                    selectedPeriod = selection.first;
-                                    errorText = '';
-                                  });
-                                }
-                              : null,
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      Text(
-                        'Limit type',
-                        style: TextStyle(
-                          color: colorScheme.onSurface,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        width: double.infinity,
-                        child: SegmentedButton<DailyGoalUnit>(
-                          segments: const [
-                            ButtonSegment(
-                              value: DailyGoalUnit.liters,
-                              icon: Icon(Icons.water_drop_outlined),
-                              label: Text('Liters'),
-                            ),
-                            ButtonSegment(
-                              value: DailyGoalUnit.cost,
-                              icon: Icon(Icons.payments_outlined),
-                              label: Text('SAR'),
-                            ),
-                          ],
-                          selected: {selectedUnit},
-                          onSelectionChanged: enabled
-                              ? (selection) {
-                                  setSheetState(() {
-                                    selectedUnit = selection.first;
-                                    errorText = '';
-                                  });
-                                }
-                              : null,
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      TextField(
-                        controller: limitController,
-                        enabled: enabled,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                            RegExp(r'^\d*\.?\d{0,5}'),
-                          ),
-                        ],
-                        decoration: InputDecoration(
-                          labelText: selectedPeriod == UsageGoalPeriod.daily
-                              ? 'Daily limit'
-                              : 'Monthly limit',
-                          suffixText: selectedUnit == DailyGoalUnit.liters
-                              ? 'L'
-                              : 'SAR',
-                          errorText: errorText.isEmpty ? null : errorText,
-                          border: const OutlineInputBorder(),
-                        ),
-                      ),
-                      if (selectedUnit == DailyGoalUnit.cost && enabled) ...[
-                        const SizedBox(height: 8),
+              return SafeArea(
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    20,
+                    4,
+                    20,
+                    20 + MediaQuery.viewInsetsOf(context).bottom,
+                  ),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
-                          'Cost is an estimate based on the residential water tariff.',
+                          'Water Usage Goal',
+                          style: TextStyle(
+                            color: colorScheme.onSurface,
+                            fontSize: 21,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Choose a daily or monthly limit and get warned before exceeding it.',
                           style: TextStyle(
                             color: colorScheme.onSurfaceVariant,
-                            fontSize: 11,
+                            fontSize: 13,
+                            height: 1.4,
                           ),
                         ),
-                      ],
-                      const SizedBox(height: 22),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: FilledButton(
-                          onPressed: () {
-                            final limit = double.tryParse(
-                              limitController.text.trim(),
-                            );
-                            if (enabled && (limit == null || limit <= 0)) {
-                              setSheetState(() {
-                                errorText = 'Enter a limit greater than zero';
-                              });
-                              return;
-                            }
-
-                            Navigator.pop(
-                              sheetContext,
-                              _UsageGoalInput(
-                                enabled: enabled,
-                                period: selectedPeriod,
-                                unit: selectedUnit,
-                                limit: limit != null && limit > 0
-                                    ? limit
-                                    : currentGoal.limit,
-                              ),
-                            );
-                          },
-                          child: const Text(
-                            'Save Goal',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                        const SizedBox(height: 18),
+                        Container(
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryAccent.withValues(
+                              alpha: 0.07,
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: SwitchListTile(
+                            title: const Text(
+                              'Enable usage goal',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            value: enabled,
+                            activeThumbColor: AppColors.primaryAccent,
+                            onChanged: (value) {
+                              setSheetState(() => enabled = value);
+                            },
                           ),
                         ),
-                      ),
-                      if (currentGoal.enabled) ...[
+                        const SizedBox(height: 18),
+                        Text(
+                          'Goal period',
+                          style: TextStyle(
+                            color: colorScheme.onSurface,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         const SizedBox(height: 10),
                         SizedBox(
                           width: double.infinity,
-                          height: 48,
-                          child: OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: colorScheme.error,
-                              side: BorderSide(color: colorScheme.error),
+                          child: SegmentedButton<UsageGoalPeriod>(
+                            segments: const [
+                              ButtonSegment(
+                                value: UsageGoalPeriod.daily,
+                                icon: Icon(Icons.today_rounded),
+                                label: Text('Daily'),
+                              ),
+                              ButtonSegment(
+                                value: UsageGoalPeriod.monthly,
+                                icon: Icon(Icons.calendar_month_rounded),
+                                label: Text('Monthly'),
+                              ),
+                            ],
+                            selected: {selectedPeriod},
+                            onSelectionChanged: enabled
+                                ? (selection) {
+                                    setSheetState(() {
+                                      selectedPeriod = selection.first;
+                                      errorText = '';
+                                    });
+                                  }
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        Text(
+                          'Limit type',
+                          style: TextStyle(
+                            color: colorScheme.onSurface,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: SegmentedButton<DailyGoalUnit>(
+                            segments: const [
+                              ButtonSegment(
+                                value: DailyGoalUnit.liters,
+                                icon: Icon(Icons.water_drop_outlined),
+                                label: Text('Liters'),
+                              ),
+                              ButtonSegment(
+                                value: DailyGoalUnit.cost,
+                                icon: Icon(Icons.payments_outlined),
+                                label: Text('SAR'),
+                              ),
+                            ],
+                            selected: {selectedUnit},
+                            onSelectionChanged: enabled
+                                ? (selection) {
+                                    setSheetState(() {
+                                      selectedUnit = selection.first;
+                                      errorText = '';
+                                    });
+                                  }
+                                : null,
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        TextField(
+                          controller: limitController,
+                          enabled: enabled,
+                          keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true,
+                          ),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'^\d*\.?\d{0,5}'),
                             ),
+                          ],
+                          decoration: InputDecoration(
+                            labelText: selectedPeriod == UsageGoalPeriod.daily
+                                ? 'Daily limit'
+                                : 'Monthly limit',
+                            suffixText: selectedUnit == DailyGoalUnit.liters
+                                ? 'L'
+                                : 'SAR',
+                            errorText: errorText.isEmpty ? null : errorText,
+                            border: const OutlineInputBorder(),
+                          ),
+                        ),
+                        if (selectedUnit == DailyGoalUnit.cost && enabled) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            'Cost is an estimate based on the residential water tariff.',
+                            style: TextStyle(
+                              color: colorScheme.onSurfaceVariant,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 22),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: FilledButton(
                             onPressed: () {
-                              Navigator.pop(
-                                sheetContext,
-                                const _UsageGoalInput.delete(),
+                              final limit = double.tryParse(
+                                limitController.text.trim(),
                               );
+                              if (enabled && (limit == null || limit <= 0)) {
+                                setSheetState(() {
+                                  errorText = 'Enter a limit greater than zero';
+                                });
+                                return;
+                              }
+
+                              _appData.updateDailyGoal(
+                                DailyUsageGoal(
+                                  enabled: enabled,
+                                  period: selectedPeriod,
+                                  unit: selectedUnit,
+                                  limit: limit != null && limit > 0
+                                      ? limit
+                                      : currentGoal.limit,
+                                ),
+                              );
+                              Navigator.pop(sheetContext);
                             },
-                            icon: const Icon(Icons.delete_outline_rounded),
-                            label: const Text(
-                              'Delete Goal',
+                            child: const Text(
+                              'Save Goal',
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
                           ),
                         ),
+                        if (currentGoal.enabled) ...[
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            width: double.infinity,
+                            height: 48,
+                            child: OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: colorScheme.error,
+                                side: BorderSide(color: colorScheme.error),
+                              ),
+                              onPressed: () {
+                                _appData.updateDailyGoal(
+                                  const DailyUsageGoal(),
+                                );
+                                Navigator.pop(sheetContext);
+                              },
+                              icon: const Icon(Icons.delete_outline_rounded),
+                              label: const Text(
+                                'Delete Goal',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ),
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            );
-          },
-        );
-      },
-    );
-
-    if (result == null) {
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      // Keep the field controller alive until the sheet's reverse animation
+      // has fully released its inherited-widget dependencies.
+      await Future<void>.delayed(const Duration(milliseconds: 450));
       limitController.dispose();
-      return;
+      _goalSheetOpen = false;
     }
-
-    // The sheet future completes when pop starts, before its reverse animation
-    // has necessarily released inherited-widget dependencies.
-    await Future<void>.delayed(const Duration(milliseconds: 350));
-    limitController.dispose();
-    if (!mounted) return;
-
-    if (result.deleteGoal) {
-      _appData.updateDailyGoal(const DailyUsageGoal());
-      return;
-    }
-
-    _appData.updateDailyGoal(
-      DailyUsageGoal(
-        enabled: result.enabled,
-        period: result.period,
-        unit: result.unit,
-        limit: result.limit,
-      ),
-    );
   }
 
   Future<void> _showAddMenu() async {
@@ -1329,28 +1316,6 @@ class _LocationInput {
 
   final String name;
   final LocationIconType iconType;
-}
-
-class _UsageGoalInput {
-  const _UsageGoalInput({
-    required this.enabled,
-    required this.period,
-    required this.unit,
-    required this.limit,
-  }) : deleteGoal = false;
-
-  const _UsageGoalInput.delete()
-    : enabled = false,
-      period = UsageGoalPeriod.daily,
-      unit = DailyGoalUnit.liters,
-      limit = 10,
-      deleteGoal = true;
-
-  final bool enabled;
-  final UsageGoalPeriod period;
-  final DailyGoalUnit unit;
-  final double limit;
-  final bool deleteGoal;
 }
 
 class _DeviceInput {
