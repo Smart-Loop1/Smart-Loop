@@ -176,7 +176,7 @@ The generated report is written to `output/pdf/smart_loop_report_preview.pdf`.
 
 ## Team & contact
 
-Built with care by **Mohammed & Abdulilah**.
+Built with 💙 by **Mohammed & Abdulilah**.
 
 - Instagram: [@smartl00ps](https://www.instagram.com/smartl00ps?stkn=b3hvdmNvNjA3bzd0&utm_source=qr)
 - TikTok: [@smartl00ps](https://www.tiktok.com/@smartl00ps?_r=1&_t=ZS-99fzwOI5YdM)
